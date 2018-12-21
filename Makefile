@@ -181,9 +181,10 @@ UPROGS=\
 	_usertests\
 	_wc\
 	_zombie\
+	_meow\
 
-fs.img: mkfs README $(UPROGS)
-	./mkfs fs.img README $(UPROGS)
+fs.img: mkfs README test.txt HANSEL_AND_GRETEL.txt IRON_HANS.txt RAPUNZEL.txt THE_QUEEN_BEE.txt THE_SEVEN_RAVENS.txt $(UPROGS)
+	./mkfs fs.img README test.txt meow.txt HANSEL_AND_GRETEL.txt IRON_HANS.txt RAPUNZEL.txt THE_QUEEN_BEE.txt THE_SEVEN_RAVENS.txt $(UPROGS)
 
 -include *.d
 
@@ -196,7 +197,7 @@ clean:
 
 # make a printout
 FILES = $(shell grep -v '^\#' runoff.list)
-PRINT = runoff.list runoff.spec README toc.hdr toc.ftr $(FILES)
+PRINT = runoff.list runoff.spec README test.txt meow.txt HANSEL_AND_GRETEL.txt IRON_HANS.txt RAPUNZEL.txt THE_QUEEN_BEE.txt THE_SEVEN_RAVENS.txt toc.hdr toc.ftr $(FILES)
 
 xv6.pdf: $(PRINT)
 	./runoff
@@ -250,9 +251,10 @@ qemu-nox-gdb: fs.img xv6.img .gdbinit
 EXTRA=\
 	mkfs.c ulib.c user.h cat.c echo.c forktest.c grep.c kill.c\
 	ln.c ls.c mkdir.c rm.c stressfs.c usertests.c wc.c zombie.c\
-	printf.c umalloc.c\
+	printf.c umalloc.c meow.c\
 	README dot-bochsrc *.pl toc.* runoff runoff1 runoff.list\
 	.gdbinit.tmpl gdbutil\
+	test.txt meow.txt HANSEL_AND_GRETEL.txt IRON_HANS.txt RAPUNZEL.txt THE_QUEEN_BEE.txt THE_SEVEN_RAVENS.txt\
 
 dist:
 	rm -rf dist
