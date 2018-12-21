@@ -1,4 +1,11 @@
 #include "user.h"
+
+// structs:
+struct iovec{
+  void* iov_base;
+  int iov_len;
+};
+
 // functions:
 void read_config(char* filename, int* lastOffset, int* bookMarkCounter, int* bookMarks){
   struct iovec iov[3];
@@ -74,10 +81,13 @@ void processContent(){
   int contentHeight = 0;
   int i;
 
-  for(i = 0; i < winWidth * winHeight && readBuffer[i] != '@' && contentHeight < winHeight - 1 ; i++){
+  for(i = 0; i < winWidth * (winHeight - 1) - 1 && readBuffer[i] != '@' && contentHeight < winHeight - 1 ; i++){
     if(counter == winWidth || readBuffer[i] == '\n'){
       contentHeight++;
       counter = 0;
+      if(contentHeight == winHeight - 1){
+        break;
+      }
     }
 
     displayBuffer[i] = readBuffer[i];
@@ -91,7 +101,7 @@ void processContent(){
     state = READING_REACH_END;
   }
 
-  while(contentHeight < winHeight - 1 ){
+  while(contentHeight < winHeight){
     displayBuffer[i++] = '\n';
     contentHeight++;
   }
@@ -106,7 +116,6 @@ void printEmptyLine(int n){
 }
 
 void updateSelectBookView(){
-  printf(1, "%s\n", booksFileName[0]);
   printf(1, "Which book do you want to read?\n");
   for(int i = 0 ; i < BOOK_AMOUNT ; i++){
     printf(1, " %c: %s\n", 'a'+i, booksName[i]);
@@ -138,10 +147,12 @@ void moveStr(char *dest, char *source, int size){
 void updateView(){
   if (state == START_READING){
     updateStartReadingView();
-  } else if (state == SELECT_BOOK) {
+  }
+  else if (state == SELECT_BOOK) {
     updateSelectBookView();
-  } else if (state == READING){
-    updateReadingView(readBuffer);
+  }
+  else if (state == READING || state == READING_REACH_END){
+    updateReadingView(displayBuffer);
   }
 }
 
@@ -158,8 +169,9 @@ int main(int argc, char *argv[]){
   updateView();
 
   while(state != EXIT){
-    char c[10];
+    char c[10] = {0};
     read(1, &c, 10);
+    //printf(1, "input = %d %d %d %d, statet = %d", c[0], c[1], c[2], c[3], state);
     if(state == SELECT_BOOK){
       switch(c[0]){
         case 'a':
@@ -186,11 +198,16 @@ int main(int argc, char *argv[]){
           state = EXIT;
           break;
       }
+      updateView();
+      
     }
     else if(state == START_READING){
       // Use config to set offset
       offset = 0;
       state = READING;
+      lseek(booksFD[selectedBook], offset, SEEK_SET);
+      read(booksFD[selectedBook], readBuffer, winWidth * winHeight);
+      processContent(displayBuffer);
       updateView();
     }
     else if(state == READING){
@@ -199,10 +216,13 @@ int main(int argc, char *argv[]){
           lseek(booksFD[selectedBook], offset, SEEK_SET);
           read(booksFD[selectedBook], readBuffer, winWidth * winHeight);
           processContent(displayBuffer);
+
           updateView();
+
           if(state == READING_REACH_END){
             state = SELECT_BOOK;
           }
+
           break;
 
         case 'j':
@@ -217,8 +237,10 @@ int main(int argc, char *argv[]){
           state = SELECT_BOOK;
           updateView();
           break;
-      }
-      
+      }  
+    }
+    else if(state == READING_REACH_END){
+      updateView();
     }
   }
   printf(1, "Good Bye!\n");
