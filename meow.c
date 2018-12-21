@@ -1,75 +1,195 @@
 #include "user.h"
 
-void test_lseek(){
-  char buf[128];
-  int fd = open("zombie", O_RDONLY);
+#define winWidth 60
+#define winHeight 18
 
-  lseek(fd, 20, SEEK_SET);
-  int bytesRead = read(fd, buf, 128);
-  printf(1, "%d %d\n", bytesRead, buf[32]);
+#define BOOK_AMOUNT 5
 
-  bytesRead = read(fd, buf, 128);
-  printf(1, "%d %d\n", bytesRead, buf[32]);
+#define EXIT 0
+#define SELECT_BOOK 1
+#define START_READING 2
+#define READING 3
+#define READING_REACH_END 4
 
-  lseek(fd, 20, SEEK_SET);
-  bytesRead = read(fd, buf, 128);
-  printf(1, "%d %d\n", bytesRead, buf[32]);
+static int state;
+static int selectedBook;
+static int booksFD[BOOK_AMOUNT];
+static int booksConfigFD[BOOK_AMOUNT];
+static char readBuffer[winWidth * winHeight];
+static char displayBuffer[winWidth * winHeight];
+static int offset;
 
-}
-
-struct iovec {
-    void* iov_base; /* Starting address */
-    int iov_len; /* Length in bytes */
+static char booksFileName[BOOK_AMOUNT][50] = {
+	"HANSEL_AND_GRETEL.txt\0",
+	"IRON_HANS.txt\0",
+	"RAPUNZEL.txt\0",
+	"THE_QUEEN_BEE.txt\0",
+	"THE_SEVEN_RAVENS.txt\0"
 };
 
-void test_writev(){
-  static char part1[] = "THIS IS FROM WRITEV";
-  static char part2[] = "[";
-  static int  part3 = 65;
-  
-  struct iovec iov[3];
+static char booksName[BOOK_AMOUNT][50] = {
+	"Hansel and Gretel\0",
+	"Iron Hans\0",
+	"Rapunzel\0",
+	"The Queen Bee\0",
+	"The Seven Ravens"
+};
 
-  iov[0].iov_base = part1;
-  iov[0].iov_len = strlen(part1);
+void processContent(){
+  int counter = 0;
+  int contentHeight = 0;
+  int i;
 
-  iov[1].iov_base = part2;
-  iov[1].iov_len = strlen(part2);
+  for(i = 0; i < winWidth * winHeight && readBuffer[i] != '@' && contentHeight < winHeight - 1 ; i++){
+    if(counter == winWidth || readBuffer[i] == '\n'){
+      contentHeight++;
+      counter = 0;
+    }
 
-  iov[2].iov_base = &part3;
-  iov[2].iov_len = sizeof(int);
-
-  printf(1, "iov[0]: ");
-  printf(1, "%s\n", part1);
-  printf(1, "iov[1]: ");
-  printf(1, "%s\n", part2);
-  printf(1, "iov[2]: ");
-  printf(1, "%c\n", part3);
-  printf(1, "\n");
-
-  printf(1, "writev(1, iov, 3): \n");
-  writev(1, iov, 3);
-
-}
-int main(int argc, char *argv[])
-{
-  int fdc, fdf;
-  fdc = open("test.txt", O_RDONLY);
-  fdf = open("meow.txt", O_RDONLY);
-  char bufferc[5];
-  char bufferf[20];
-  read(fdc, bufferc, 5);
-  int offset = 0;
-  for (int i = 0; i < 2; i++)
-  {
-    offset += bufferc[i] - '0';
-    if (i < 1)
-      offset *= 10;
+    displayBuffer[i] = readBuffer[i];
+    counter++;
   }
-  read(fdf, bufferf, 20);
-  printf(1, "%s\n", bufferf);
-  printf(1, "%d\n", offset);
-  lseek(fdf, 0, SEEK_SET);
-  read(fdf, bufferf, 20);
-  printf(1, "%s\n", bufferf);
+  
+  offset += i;
+
+  if(readBuffer[i] == '@'){
+    offset = 0;
+    state = READING_REACH_END;
+  }
+
+  while(contentHeight < winHeight - 1 ){
+    displayBuffer[i++] = '\n';
+    contentHeight++;
+  }
+  
+  displayBuffer[i] = '\0';
+}
+
+void printEmptyLine(int n){
+  for(int i = 0 ; i < n ; i++){
+    printf(1, "\n");
+  }
+}
+
+void updateSelectBookView(){
+  printf(1, "%s\n", booksFileName[0]);
+  printf(1, "Which book do you want to read?\n");
+  for(int i = 0 ; i < BOOK_AMOUNT ; i++){
+    printf(1, " %c: %s\n", 'a'+i, booksName[i]);
+  }
+  for(int i = 0 ; i < winHeight - BOOK_AMOUNT - 2 ; i++){
+    printf(1, "\n");
+  }
+}
+
+void updateStartReadingView(){
+  printEmptyLine(8);
+  printf(1, "Starting Reading \"%s\" from the place you \nleft last time...", booksName[selectedBook]);
+  printEmptyLine(8);
+}
+
+int updateReadingView(){
+  printf(1, "%s", displayBuffer);
+  return 0;
+}
+
+void moveStr(char *dest, char *source, int size){
+  int i;
+  for(i = 0 ; i < size && source[i] != '\0'; i++){
+    dest[i] = source[i];
+  }
+  dest[i+1] = '\0';
+}
+
+void updateView(){
+  if (state == START_READING){
+    updateStartReadingView();
+  } else if (state == SELECT_BOOK) {
+    updateSelectBookView();
+  } else if (state == READING){
+    updateReadingView(readBuffer);
+  }
+}
+
+int main(int argc, char *argv[]){
+
+  for(int i = 0 ; i < BOOK_AMOUNT ; i++){
+    booksFD[i] = open(booksFileName[i], O_RDONLY);
+  }
+  for(int i = 0 ; i < BOOK_AMOUNT ; i++){
+    booksConfigFD[i] = 0;
+  }
+
+  state = SELECT_BOOK;
+  updateView();
+
+  while(state != EXIT){
+    char c[10];
+    read(1, &c, 10);
+    if(state == SELECT_BOOK){
+      switch(c[0]){
+        case 'a':
+          selectedBook = 0;
+          state = START_READING;
+          break;
+        case 'b':
+          selectedBook = 1;
+          state = START_READING;
+          break;
+        case 'c':
+          selectedBook = 2;
+          state = START_READING;
+          break;
+        case 'd':
+          selectedBook = 3;
+          state = START_READING;
+          break;
+        case 'e':
+          selectedBook = 4;
+          state = START_READING;
+          break;
+        case 'q':
+          state = EXIT;
+          break;
+      }
+    }
+    else if(state == START_READING){
+      // Use config to set offset
+      offset = 0;
+      state = READING;
+      updateView();
+    }
+    else if(state == READING){
+      switch(c[0]){
+        case '\n':
+          lseek(booksFD[selectedBook], offset, SEEK_SET);
+          read(booksFD[selectedBook], readBuffer, winWidth * winHeight);
+          processContent(displayBuffer);
+          updateView();
+          if(state == READING_REACH_END){
+            state = SELECT_BOOK;
+          }
+          break;
+
+        case 'j':
+          // jump to book mark
+          break;
+
+        case 'b':
+          // book mark
+          break;
+
+        case 'q':
+          state = SELECT_BOOK;
+          updateView();
+          break;
+      }
+      
+    }
+  }
+  printf(1, "Good Bye!\n");
   exit();
 }
+
+
+
