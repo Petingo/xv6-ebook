@@ -1,4 +1,38 @@
 #include "user.h"
+// functions:
+void read_config(char* filename, int* lastOffset, int* bookMarkCounter, int* bookMarks){
+  struct iovec iov[3];
+  iov[0].iov_base = lastOffset;
+  iov[0].iov_len = 4;
+
+  iov[1].iov_base = bookMarkCounter;
+  iov[1].iov_len = 4;
+
+  iov[2].iov_base = bookMarks;
+  iov[2].iov_len = 400;
+
+  int fd = open(filename, O_RDONLY);
+  readv(fd, iov, 3);
+  close(fd);
+}
+
+void write_config(char* filename, int* lastOffset, int* bookMarkCounter, int* bookMarks){
+  struct iovec iov[3];
+  iov[0].iov_base = lastOffset;
+  iov[0].iov_len = 4;
+
+  iov[1].iov_base = bookMarkCounter;
+  iov[1].iov_len = 4;
+
+  iov[2].iov_base = bookMarks;
+  iov[2].iov_len = 4 * (*bookMarkCounter);
+
+  int fd = open(filename, O_WRONLY);
+  writev(fd, iov, 3);
+  close(fd);
+}
+
+// main program:
 
 #define winWidth 60
 #define winHeight 18

@@ -140,12 +140,14 @@ sys_readv(void)
   
   int offset = 0;
 
+  int bytesRead = fileread(f, buffer, bytes);
+
   for(int i = 0 ; i < count ; i++){
-    memmove((void*) (buffer + offset), (void*) vector[i].iov_base, vector[i].iov_len);
+    memmove((void*) vector[i].iov_base, (void*) (buffer + offset), vector[i].iov_len);
     offset += vector[i].iov_len;
   }
 
-  return fileread(f, buffer, bytes);
+  return bytesRead;
 }
 
 int
