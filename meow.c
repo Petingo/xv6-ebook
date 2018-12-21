@@ -32,7 +32,7 @@ void write_config(char* filename, int* lastOffset, int* bookMarkCounter, int* bo
   iov[1].iov_len = 4;
 
   iov[2].iov_base = bookMarks;
-  iov[2].iov_len = 4 * (*bookMarkCounter);
+  iov[2].iov_len = 400;
 
   int fd = open(filename, O_WRONLY);
   writev(fd, iov, 3);
@@ -67,6 +67,14 @@ static char booksFileName[BOOK_AMOUNT][50] = {
 	"THE_QUEEN_BEE.txt\0",
 	"THE_SEVEN_RAVENS.txt\0"
 };
+
+static char booksConfigFileName[BOOK_AMOUNT][50] = {
+  "HANSEL_AND_GRETEL_config.txt\0",
+	"IRON_HANS_config.txt\0",
+	"RAPUNZEL_config.txt\0",
+	"THE_QUEEN_BEE_config.txt\0",
+	"THE_SEVEN_RAVENS_config.txt\0"
+}
 
 static char booksName[BOOK_AMOUNT][50] = {
 	"Hansel and Gretel\0",
@@ -162,11 +170,14 @@ int main(int argc, char *argv[]){
     booksFD[i] = open(booksFileName[i], O_RDONLY);
   }
   for(int i = 0 ; i < BOOK_AMOUNT ; i++){
-    booksConfigFD[i] = 0;
+    booksConfigFD[i] = open(booksConfigFileName[i],O_RDWR);
   }
 
   state = SELECT_BOOK;
   updateView();
+  // varable use to save config
+  int lastOffset, bookMarkCounter;
+  int bookMarks[100];
 
   while(state != EXIT){
     char c[10] = {0};
@@ -203,7 +214,8 @@ int main(int argc, char *argv[]){
     }
     else if(state == START_READING){
       // Use config to set offset
-      offset = 0;
+      read_config(booksConfigFileName[selectedBook], &lastOffset, 100, bookMarks);
+      offset = lastOffset;
       state = READING;
       lseek(booksFD[selectedBook], offset, SEEK_SET);
       read(booksFD[selectedBook], readBuffer, winWidth * winHeight);
@@ -226,15 +238,25 @@ int main(int argc, char *argv[]){
           break;
 
         case 'j':
-          // jump to book mark
+          // 
+          int mark_number;
+          mark_number = (c[2] - '0') * 10 + (c[3] - '0');
+          lseek(booksFD[selectedBook], bookMarks[mark_number], SEEK_SET);
+          updateView();
           break;
 
         case 'b':
           // book mark
+          int mark_number;
+          mark_number = (c[2] - '0') * 10 + (c[3] - '0');
+          bookMarks[mark_number] = offset;
+          updateView();
           break;
 
         case 'q':
           state = SELECT_BOOK;
+          //
+          write_config(booksConfigFileName[selectedBook], &lastOffset, 100, bookMarks);
           updateView();
           break;
       }  
